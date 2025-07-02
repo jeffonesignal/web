@@ -1,1 +1,198 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=2.0,minimum-scale=1.0,user-scalable=yes">
 
+<!-- <link rel="manifest" href="../manifest.json"> -->
+<link rel="manifest" href="manifest.json">
+<title>MyPage｜デモこども園</title>
+<script src=https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js defer></script>
+<script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(function(OneSignal) {
+    OneSignal.init({
+      appId: "6970c1c2-d726-4426-ac3b-b029c0fc0bce",
+      safari_web_id: "web.onesignal.auto.235723f6-f2ef-49f2-bb5e-e966332d4e54",
+      autoResubscribe: true,
+      notifyButton: {
+        enable: true,
+      },
+      // webhooks: {
+      //   cors: true, // Defaults to false if omitted
+      //   'notification.willDisplay': 'https://enjkc0v93uybm.x.pipedream.net',
+      //   'notification.clicked': 'https://enjkc0v93uybm.x.pipedream.net', 
+      //   'notification.dismissed': 'https://enjkc0v93uybm.x.pipedream.net'
+      // },
+      serviceWorkerParam: { scope: "/web/" },
+      serviceWorkerPath: "web/OneSignalSDKWorker.js",
+      // Your other init options here
+      promptOptions: {
+        customlink: {
+          enabled: true, /* Required to use the Custom Link */
+          style: "button", /* Has value of 'button' or 'link' */
+          size: "medium", /* One of 'small', 'medium', or 'large' */
+          color: {
+            button: '#E12D30', /* Color of the button background if style = "button" */
+            text: '#FFFFFF', /* Color of the prompt's text */
+          },
+          text: {
+            subscribe: "Subscribe to push notifications", /* Prompt's text when not subscribed */
+            unsubscribe: "Unsubscribe from push notifications", /* Prompt's text when subscribed */
+            explanation: "Get updates from all sorts of things that matter to you", /* Optional text appearing before the prompt button */
+          },
+          unsubscribeEnabled: true, /* Controls whether the prompt is visible after subscription */
+        },
+        slidedown: {
+          prompts: [
+            {
+              text: {
+                actionMessage: "The callout asking the user to opt-in. Up to 90 characters.",
+                acceptButton: "Triggers the opt-in. Up to 15 characters.",
+                cancelButton: "Cancels opt-in. Up to 15 characters."
+              }
+            }
+          ]
+        }
+      }
+
+    //end of init  
+    });
+
+    // if(OneSignal) OneSignal.Notifications.addEventListener("permissionChange", permissionChangeListener);
+
+    // function permissionChangeListener(permission) {
+    //   if (permission) {
+    //     console.log(`permission accepted!`);
+    //     if(OneSignal) 
+    //       OneSignal.login("100234");
+    //       OneSignal.User.addTag("name", "jeff");
+    //   }
+    // }
+  });
+
+  const addTag = (()=>{
+    console.log("{ test: 1 }");
+    alert("tag added");
+    if(OneSignal) OneSignal.User.addTag("test", "1");
+  });
+
+  const promptSlide = (()=>{
+    console.log("prompt slide");
+    if(OneSignal) OneSignal.Slidedown.promptPush();
+  });
+
+  const addEmail = (()=>{
+    console.log("add email");
+    if(OneSignal) OneSignal.User.addEmail("jeffreychen@onesignal.com");
+  });
+
+  const emailPrompt = (()=>{
+    console.log("add email");
+    if(OneSignal) OneSignal.Slidedown.promptEmail();
+  });
+
+  function promptListener() {
+    console.log(`permission prompt dispslayed event: ${event}`);
+  }
+
+  if(OneSignal) OneSignal.Notifications.addEventListener("permissionPromptDisplay", promptListener);
+</script>
+<style>
+    #onesignal-bell-container.onesignal-reset .onesignal-bell-launcher.onesignal-bell-launcher-bottom-right.onesignal-bell-launcher-md .onesignal-bell-launcher-message {
+      display: none;
+    }
+  </style>
+<!-- <script src=https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js?v=160101 defer></script> -->
+<!-- <script>
+window.OneSignalDeferred = window.OneSignalDeferred || [];
+OneSignalDeferred.push(function(OneSignal) {
+  OneSignal.init({
+    appId: "6970c1c2-d726-4426-ac3b-b029c0fc0bce",
+    notifyButton: {
+      enable: true
+    },
+    webhooks: {
+      cors: true, // Defaults to false if omitted
+      'notification.willDisplay': 'https://typedwebhook.tools/webhook/42911f55-38bb-466d-a7aa-dd941070dfa0',
+      // 'notification.clicked': 'https://typedwebhook.tools/webhook/42911f55-38bb-466d-a7aa-dd941070dfa0', 
+      // 'notification.displayed': 'https://typedwebhook.tools/webhook/2ecc0213-63ed-49bf-8ae4-d00a6bc02224'
+      // 'notification.willDisplay': 'https://typedwebhook.tools/webhook/2ecc0213-63ed-49bf-8ae4-d00a6bc02224'
+    },
+    serviceWorkerParam: { scope: "/one-signal-static-website/" },
+    serviceWorkerPath: "one-signal-static-website/OneSignalSDKWorker.js",
+    });
+  if(OneSignal) OneSignal.Notifications.addEventListener("foregroundWillDisplay", foregroundListener);
+});
+
+function foregroundListener(event) {
+  console.log(`${event}`);
+}
+</script> 
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  window.OneSignalDeferred.push(async function(OneSignal) {
+    await OneSignal.init({
+      appId: "6970c1c2-d726-4426-ac3b-b029c0fc0bce",
+    });
+    // OneSignal.Notifications.addEventListener("permissionChange", ()=>{
+    //   if (!permission) {
+    //     console.log('promptSlide')
+    //     OneSignal.Slidedown.promptPush()
+    //   }
+    // });
+  }); 
+  // OneSignal.Notifications.permission
+  // function permissionChangeListener(permission) {
+
+  //   if (!permission) {
+  //       console.log('promptSlide')
+  //       OneSignal.Slidedown.promptPush()
+  //     }
+
+  // }
+
+  // OneSignal.Notifications.addEventListener("permissionChange", permissionChangeListener);
+
+  // OneSignal.login("100234")
+  
+  const addTag = (()=>{
+    console.log("{ test: 1 }");
+    alert("tag added");
+    if(OneSignal) OneSignal.User.addTag("test", "1");
+  });
+
+  const promptSlide = (()=>{
+    console.log("prompt slide");
+    if(OneSignal) OneSignal.Slidedown.promptPush();
+  });
+
+  const addEmail = (()=>{
+    console.log("prompt slide");
+    if(OneSignal) OneSignal.User.addEmail("jeffreychen@onesignal.com");
+  });
+
+  // setTimeout(eventListener(), 10000);  
+</script> -->
+
+</head>
+  <body class="admin bg_white">
+  <header>
+      <div class="head_bar">
+          <div>
+              <h1>OneSignal Index</h1>
+          </div>
+      </div>
+  </header>
+  <ul class="btn_wrap_mp" align="center">
+    <a href="menu_test.html">menu_test</a>
+    <a href="shukketsu_selection_test.html">next</a>
+
+    <button type="button" class="btn btn-primary" onclick="addTag()">Add Tag</button>
+    <button type="button" class="btn btn-primary" onclick="promptSlide()">Prompt Slide</button>
+    <button type="button" class="btn btn-primary" onclick="addEmail()">Add Email</button>
+    <button type="button" class="btn btn-primary" onclick="emailPrompt()">Prompt Email</button>
+  </ul>
+  <div class='onesignal-customlink-container'></div>
+  </body>
+</html>

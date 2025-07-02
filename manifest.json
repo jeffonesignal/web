@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json.schemastore.org/web-manifest-combined.json",
+  "name": "おまかせ保育システム",
+  "short_name": "おまかせ保育",
+  "display": "standalone"
+}
