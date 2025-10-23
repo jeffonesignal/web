@@ -3,7 +3,6 @@
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=2.0,minimum-scale=1.0,user-scalable=yes">
 
-<!-- <link rel="manifest" href="../manifest.json"> -->
 <link rel="manifest" href="manifest.json">
 <title>MyPage｜デモこども園</title>
 <script src=https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js defer></script>
@@ -24,7 +23,7 @@
       //   'notification.dismissed': 'https://enjkc0v93uybm.x.pipedream.net'
       // },
       serviceWorkerParam: { scope: "/web/" },
-      serviceWorkerPath: "web/OneSignalSDKWorker.js",
+      serviceWorkerPath: "web/2/OneSignalSDKWorker.js",
       // Your other init options here
       promptOptions: {
         customlink: {
@@ -57,17 +56,6 @@
 
     //end of init  
     });
-
-    // if(OneSignal) OneSignal.Notifications.addEventListener("permissionChange", permissionChangeListener);
-
-    // function permissionChangeListener(permission) {
-    //   if (permission) {
-    //     console.log(`permission accepted!`);
-    //     if(OneSignal) 
-    //       OneSignal.login("100234");
-    //       OneSignal.User.addTag("name", "jeff");
-    //   }
-    // }
   });
 
   const addTag = (()=>{
@@ -102,78 +90,6 @@
       display: none;
     }
   </style>
-<!-- <script src=https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js?v=160101 defer></script> -->
-<!-- <script>
-window.OneSignalDeferred = window.OneSignalDeferred || [];
-OneSignalDeferred.push(function(OneSignal) {
-  OneSignal.init({
-    appId: "6970c1c2-d726-4426-ac3b-b029c0fc0bce",
-    notifyButton: {
-      enable: true
-    },
-    webhooks: {
-      cors: true, // Defaults to false if omitted
-      'notification.willDisplay': 'https://typedwebhook.tools/webhook/42911f55-38bb-466d-a7aa-dd941070dfa0',
-      // 'notification.clicked': 'https://typedwebhook.tools/webhook/42911f55-38bb-466d-a7aa-dd941070dfa0', 
-      // 'notification.displayed': 'https://typedwebhook.tools/webhook/2ecc0213-63ed-49bf-8ae4-d00a6bc02224'
-      // 'notification.willDisplay': 'https://typedwebhook.tools/webhook/2ecc0213-63ed-49bf-8ae4-d00a6bc02224'
-    },
-    serviceWorkerParam: { scope: "/one-signal-static-website/" },
-    serviceWorkerPath: "one-signal-static-website/OneSignalSDKWorker.js",
-    });
-  if(OneSignal) OneSignal.Notifications.addEventListener("foregroundWillDisplay", foregroundListener);
-});
-
-function foregroundListener(event) {
-  console.log(`${event}`);
-}
-</script> 
-<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-<script>
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  window.OneSignalDeferred.push(async function(OneSignal) {
-    await OneSignal.init({
-      appId: "6970c1c2-d726-4426-ac3b-b029c0fc0bce",
-    });
-    // OneSignal.Notifications.addEventListener("permissionChange", ()=>{
-    //   if (!permission) {
-    //     console.log('promptSlide')
-    //     OneSignal.Slidedown.promptPush()
-    //   }
-    // });
-  }); 
-  // OneSignal.Notifications.permission
-  // function permissionChangeListener(permission) {
-
-  //   if (!permission) {
-  //       console.log('promptSlide')
-  //       OneSignal.Slidedown.promptPush()
-  //     }
-
-  // }
-
-  // OneSignal.Notifications.addEventListener("permissionChange", permissionChangeListener);
-
-  // OneSignal.login("100234")
-  
-  const addTag = (()=>{
-    console.log("{ test: 1 }");
-    alert("tag added");
-    if(OneSignal) OneSignal.User.addTag("test", "1");
-  });
-
-  const promptSlide = (()=>{
-    console.log("prompt slide");
-    if(OneSignal) OneSignal.Slidedown.promptPush();
-  });
-
-  const addEmail = (()=>{
-    console.log("prompt slide");
-    if(OneSignal) OneSignal.User.addEmail("jeffreychen@onesignal.com");
-  });
-
-  // setTimeout(eventListener(), 10000);  
-</script> -->
 
 </head>
   <body class="admin bg_white">
