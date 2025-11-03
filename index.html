@@ -16,14 +16,14 @@
       notifyButton: {
         enable: true,
       },
-      // webhooks: {
-      //   cors: true, // Defaults to false if omitted
-      //   'notification.willDisplay': 'https://enjkc0v93uybm.x.pipedream.net',
-      //   'notification.clicked': 'https://enjkc0v93uybm.x.pipedream.net', 
-      //   'notification.dismissed': 'https://enjkc0v93uybm.x.pipedream.net'
-      // },
+      webhooks: {
+        cors: true, // Defaults to false if omitted
+        'notification.willDisplay': 'https://webhook.site/d04a69f7-5114-4e98-b69f-f31ceb790f2c',
+        'notification.clicked': 'https://webhook.site/d04a69f7-5114-4e98-b69f-f31ceb790f2c', 
+        'notification.dismissed': 'https://webhook.site/d04a69f7-5114-4e98-b69f-f31ceb790f2c'
+      },
       serviceWorkerParam: { scope: "/web/" },
-      serviceWorkerPath: "web/2/OneSignalSDKWorker.js",
+      serviceWorkerPath: "web/OneSignalSDKWorker.js",
       // Your other init options here
       promptOptions: {
         customlink: {
