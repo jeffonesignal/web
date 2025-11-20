@@ -26,7 +26,7 @@
       serviceWorkerPath: "web/OneSignalSDKWorker.js",
       // Your other init options here
       promptOptions: {
-        autoPrompt: false,
+        
         // customlink: {
         //   enabled: true, /* Required to use the Custom Link */
         //   style: "button", /* Has value of 'button' or 'link' */
@@ -45,6 +45,7 @@
         slidedown: {
           prompts: [
             {
+              autoPrompt: false,
               text: {
                 actionMessage: "The callout asking the user to opt-in. Up to 90 characters.",
                 acceptButton: "Triggers the opt-in. Up to 15 characters.",
