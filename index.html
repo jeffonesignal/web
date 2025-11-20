@@ -14,33 +14,34 @@
       safari_web_id: "web.onesignal.auto.235723f6-f2ef-49f2-bb5e-e966332d4e54",
       autoResubscribe: true,
       notifyButton: {
-        enable: true,
+        enable: false,
       },
-      webhooks: {
-        cors: false, // Defaults to false if omitted
-        'notification.willDisplay': 'https://webhook.site/d04a69f7-5114-4e98-b69f-f31ceb790f2c',
-        'notification.clicked': 'https://webhook.site/d04a69f7-5114-4e98-b69f-f31ceb790f2c', 
-        'notification.dismissed': 'https://webhook.site/d04a69f7-5114-4e98-b69f-f31ceb790f2c'
-      },
+      // webhooks: {
+      //   cors: false, // Defaults to false if omitted
+      //   'notification.willDisplay': 'https://webhook.site/d04a69f7-5114-4e98-b69f-f31ceb790f2c',
+      //   'notification.clicked': 'https://webhook.site/d04a69f7-5114-4e98-b69f-f31ceb790f2c', 
+      //   'notification.dismissed': 'https://webhook.site/d04a69f7-5114-4e98-b69f-f31ceb790f2c'
+      // },
       serviceWorkerParam: { scope: "/web/" },
       serviceWorkerPath: "web/OneSignalSDKWorker.js",
       // Your other init options here
       promptOptions: {
-        customlink: {
-          enabled: true, /* Required to use the Custom Link */
-          style: "button", /* Has value of 'button' or 'link' */
-          size: "medium", /* One of 'small', 'medium', or 'large' */
-          color: {
-            button: '#E12D30', /* Color of the button background if style = "button" */
-            text: '#FFFFFF', /* Color of the prompt's text */
-          },
-          text: {
-            subscribe: "Subscribe to push notifications", /* Prompt's text when not subscribed */
-            unsubscribe: "Unsubscribe from push notifications", /* Prompt's text when subscribed */
-            explanation: "Get updates from all sorts of things that matter to you", /* Optional text appearing before the prompt button */
-          },
-          unsubscribeEnabled: true, /* Controls whether the prompt is visible after subscription */
-        },
+        autoPrompt: false,
+        // customlink: {
+        //   enabled: true, /* Required to use the Custom Link */
+        //   style: "button", /* Has value of 'button' or 'link' */
+        //   size: "medium", /* One of 'small', 'medium', or 'large' */
+        //   color: {
+        //     button: '#E12D30', /* Color of the button background if style = "button" */
+        //     text: '#FFFFFF', /* Color of the prompt's text */
+        //   },
+        //   text: {
+        //     subscribe: "Subscribe to push notifications", /* Prompt's text when not subscribed */
+        //     unsubscribe: "Unsubscribe from push notifications", /* Prompt's text when subscribed */
+        //     explanation: "Get updates from all sorts of things that matter to you", /* Optional text appearing before the prompt button */
+        //   },
+        //   unsubscribeEnabled: true, /* Controls whether the prompt is visible after subscription */
+        // },
         slidedown: {
           prompts: [
             {
@@ -58,26 +59,26 @@
     });
   });
 
-  const addTag = (()=>{
-    console.log("{ test: 1 }");
-    alert("tag added");
-    if(OneSignal) OneSignal.User.addTag("test", "1");
-  });
+  // const addTag = (()=>{
+  //   console.log("{ test: 1 }");
+  //   alert("tag added");
+  //   if(OneSignal) OneSignal.User.addTag("test", "1");
+  // });
 
   const promptSlide = (()=>{
     console.log("prompt slide");
     if(OneSignal) OneSignal.Slidedown.promptPush();
   });
 
-  const addEmail = (()=>{
-    console.log("add email");
-    if(OneSignal) OneSignal.User.addEmail("jeffreychen@onesignal.com");
-  });
+  // const addEmail = (()=>{
+  //   console.log("add email");
+  //   if(OneSignal) OneSignal.User.addEmail("jeffreychen@onesignal.com");
+  // });
 
-  const emailPrompt = (()=>{
-    console.log("add email");
-    if(OneSignal) OneSignal.Slidedown.promptEmail();
-  });
+  // const emailPrompt = (()=>{
+  //   console.log("add email");
+  //   if(OneSignal) OneSignal.Slidedown.promptEmail();
+  // });
 
   // function promptListener() {
   //   console.log(`permission prompt dispslayed event: ${event}`);
@@ -85,11 +86,11 @@
 
   // if(OneSignal) OneSignal.Notifications.addEventListener("permissionPromptDisplay", promptListener);
 </script>
-<style>
+<!-- <style>
     #onesignal-bell-container.onesignal-reset .onesignal-bell-launcher.onesignal-bell-launcher-bottom-right.onesignal-bell-launcher-md .onesignal-bell-launcher-message {
       display: none;
     }
-  </style>
+  </style> -->
 
 </head>
   <body class="admin bg_white">
@@ -101,14 +102,14 @@
       </div>
   </header>
   <ul class="btn_wrap_mp" align="center">
-    <a href="menu_test.html">menu_test</a>
+    <!-- <a href="menu_test.html">menu_test</a>
     <a href="shukketsu_selection_test.html">next</a>
 
-    <button type="button" class="btn btn-primary" onclick="addTag()">Add Tag</button>
+    <button type="button" class="btn btn-primary" onclick="addTag()">Add Tag</button> -->
     <button type="button" class="btn btn-primary" onclick="promptSlide()">Prompt Slide</button>
-    <button type="button" class="btn btn-primary" onclick="addEmail()">Add Email</button>
-    <button type="button" class="btn btn-primary" onclick="emailPrompt()">Prompt Email</button>
+    <!-- <button type="button" class="btn btn-primary" onclick="addEmail()">Add Email</button>
+    <button type="button" class="btn btn-primary" onclick="emailPrompt()">Prompt Email</button> -->
   </ul>
-  <div class='onesignal-customlink-container'></div>
+  <!-- <div class='onesignal-customlink-container'></div> -->
   </body>
 </html>
