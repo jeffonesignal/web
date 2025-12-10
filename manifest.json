@@ -4,9 +4,9 @@
   "short_name": "おまかせ保育",
   "display": "standalone",
   "icons": [
-    { "src": "/onesignal_icon.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/onesignal_icon.png", "sizes": "256x256", "type": "image/png" },
-    { "src": "/onesignal_icon.png", "sizes": "384x384", "type": "image/png" },
-    { "src": "/onesignal_icon.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "https://jeffonesignal.github.io/web/onesignal_icon.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "https://jeffonesignal.github.io/web/onesignal_icon.png", "sizes": "256x256", "type": "image/png" },
+    { "src": "https://jeffonesignal.github.io/web/onesignal_icon.png", "sizes": "384x384", "type": "image/png" },
+    { "src": "https://jeffonesignal.github.io/web/onesignal_icon.png", "sizes": "512x512", "type": "image/png" }
   ]
 }
