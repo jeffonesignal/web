@@ -1,11 +1,14 @@
 name: Auto-Translate index.html
 
 on:
-  push:
+  pull_request:
     branches:
       - main
     paths:
       - 'index.html'
+    types:
+      - opened
+      - synchronize
 
 jobs:
   translate:
@@ -18,108 +21,82 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2  # needed to diff against previous commit
+          fetch-depth: 2
 
-      - name: Check if <p> content changed in en section
+      - name: Check if <p> content changed
         id: check_change
         run: |
-          git diff HEAD~1 HEAD -- index.html > /tmp/index_diff.txt
-
+          git diff origin/main HEAD -- index.html > /tmp/index_diff.txt
           if grep -q "^[+-].*<p>" /tmp/index_diff.txt; then
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "p tags changed detected"
           else
             echo "changed=false" >> $GITHUB_OUTPUT
-            echo "No p tag changes detected, skipping translation"
           fi
 
-      - name: Create translation branch
+      - name: Set up Node.js
+        if: steps.check_change.outputs.changed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Anthropic SDK
+        if: steps.check_change.outputs.changed == 'true'
+        run: npm install @anthropic-ai/sdk
+
+      - name: Run Claude translation via API
+        if: steps.check_change.outputs.changed == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          node << 'EOF'
+          const Anthropic = require("@anthropic-ai/sdk");
+          const fs = require("fs");
+
+          const client = new Anthropic();
+          const html = fs.readFileSync("index.html", "utf8");
+
+          async function translate() {
+            const response = await client.messages.create({
+              model: "claude-sonnet-4-6",
+              max_tokens: 4096,
+              messages: [
+                {
+                  role: "user",
+                  content: `You are a translation agent. The index.html file contains 7 sequential <p> tags in this exact language order:
+          1. English (en) — source of truth
+          2. Simplified Chinese (cn)
+          3. Korean (ko)
+          4. Japanese (ja)
+          5. Portuguese (pt)
+          6. French (fr)
+          7. Turkish (tr)
+
+          Rules:
+          - Read the English <p> tag (position 1) as the source of truth
+          - Translate it into the other 6 languages and replace each corresponding <p> tag
+          - ONLY change the text inside the <p> tags — do not modify any HTML, attributes, scripts, or structure
+          - Return the COMPLETE updated index.html file and nothing else — no explanation, no markdown fences
+
+          Here is the current index.html:
+          ${html}`
+                }
+              ]
+            });
+
+            const updatedHtml = response.content[0].text;
+            fs.writeFileSync("index.html", updatedHtml, "utf8");
+            console.log("Translation complete.");
+          }
+
+          translate().catch(e => { console.error(e); process.exit(1); });
+          EOF
+
+      - name: Commit translation back to PR branch
         if: steps.check_change.outputs.changed == 'true'
         run: |
-          BRANCH="auto-translate-$(date +%Y%m%d-%H%M%S)"
-          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b $BRANCH
-
-      - name: Run Claude translation
-        if: steps.check_change.outputs.changed == 'true'
-        uses: anthropics/claude-code-action@v1
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          model: claude-sonnet-4-6
-          max_turns: 10
-          prompt: |
-            You are a translation automation agent. Your task is to update translations in index.html.
-
-            ## Your Task
-            1. Read the current `index.html` file
-            2. Find all `<p>` elements that contain English ("en") content — these are the source of truth
-            3. For each `<p>` element, update the translated versions for these 7 languages:
-               - en (English - keep as-is, this is the source)
-               - cn (Simplified Chinese)
-               - ko (Korean)
-               - ja (Japanese)
-               - pt (Portuguese)
-               - tr (Turkish)
-               - fr (French)
-
-            ## Rules
-            - ONLY update `<p>` tag content — do not change any HTML structure, attributes, classes, IDs, or other tags
-            - Preserve all existing HTML attributes exactly as they are
-            - Keep the same tone and meaning as the English source
-            - If a translation already matches the English source meaning, you may leave it unchanged
-            - Only write changes if the translation actually needs updating based on the new English content
-
-            ## File Structure
-            The translations in index.html are 7 sequential `<p>` tags in the `<body>`, in this exact order:
-            1. en (English) — source of truth
-            2. cn (Simplified Chinese)
-            3. ko (Korean)
-            4. ja (Japanese)
-            5. pt (Portuguese)
-            6. fr (French)
-            7. tr (Turkish)
-
-            There are no data attributes or lang attributes — the position of each `<p>` tag determines its language.
-            Replace all 7 `<p>` tags with correctly translated content based on the updated English `<p>` (position 1).
-            Do not add, remove, or reorder any `<p>` tags.
-
-            ## Output
-            Write the updated content back to `index.html` only. Do NOT commit or push — the workflow will handle that.
-
-      - name: Commit and push translation branch
-        if: steps.check_change.outputs.changed == 'true'
-        run: |
           git add index.html
           git diff --staged --quiet && echo "No changes to commit" && exit 0
           git commit -m "chore: auto-translate p tags to cn, ko, ja, pt, tr, fr"
-          git push origin $BRANCH
-
-      - name: Create Pull Request
-        if: steps.check_change.outputs.changed == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh pr create \
-            --title "chore: auto-translate updated <p> content" \
-            --body "## Auto-Translation PR
-
-          This PR was automatically generated by Claude after detecting changes to \`<p>\` content in \`index.html\`.
-
-          ### Languages updated
-          - 🇨🇳 Chinese (cn)
-          - 🇰🇷 Korean (ko)
-          - 🇯🇵 Japanese (ja)
-          - 🇵🇹 Portuguese (pt)
-          - 🇹🇷 Turkish (tr)
-          - 🇫🇷 French (fr)
-
-          ### Review checklist
-          - [ ] Translations are accurate and natural
-          - [ ] HTML structure is unchanged
-          - [ ] No unintended content was modified
-
-          > Triggered by commit: ${{ github.sha }}" \
-            --base main \
-            --head $BRANCH
+          git push origin HEAD:${{ github.head_ref }}
