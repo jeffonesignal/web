@@ -20,37 +20,56 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: Check if <p> content changed
-        id: check_change
-        run: |
-          git diff HEAD~1 HEAD -- index.html > /tmp/index_diff.txt
-          if grep -q "^[+-].*<p>" /tmp/index_diff.txt; then
-            echo "changed=true" >> $GITHUB_OUTPUT
-          else
-            echo "changed=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Set up Node.js
-        if: steps.check_change.outputs.changed == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Install Anthropic SDK
-        if: steps.check_change.outputs.changed == 'true'
-        run: npm install @anthropic-ai/sdk
+      - name: Install dependencies
+        run: npm install @anthropic-ai/sdk node-html-parser
 
-      - name: Run Claude translation via API
-        if: steps.check_change.outputs.changed == 'true'
+      - name: Check and translate via Claude API
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           node << 'EOF'
           const Anthropic = require("@anthropic-ai/sdk");
+          const { parse } = require("node-html-parser");
           const fs = require("fs");
 
           const client = new Anthropic();
           const html = fs.readFileSync("index.html", "utf8");
+          const root = parse(html);
+
+          // Read content of each language <p> by id
+          const langs = ["en", "cn", "ko", "ja", "pt", "fr", "tr"];
+          const contents = {};
+          for (const lang of langs) {
+            const el = root.querySelector(`p[id="${lang}"]`);
+            contents[lang] = el ? el.innerHTML.trim() : null;
+          }
+
+          const enContent = contents["en"];
+          if (!enContent) {
+            console.log("❌ No <p id='en'> found. Exiting.");
+            process.exit(0);
+          }
+
+          // Check which languages are out of sync with en
+          const toLang = { cn: "Simplified Chinese", ko: "Korean", ja: "Japanese", pt: "Portuguese", fr: "French", tr: "Turkish" };
+          const outdated = Object.keys(toLang).filter(lang => {
+            // If the lang <p> is missing or still contains English text, mark as outdated
+            return !contents[lang] || contents[lang] === enContent;
+          });
+
+          if (outdated.length === 0) {
+            console.log("✅ All translations are already up to date.");
+            fs.writeFileSync("/tmp/needs_translation", "false");
+            process.exit(0);
+          }
+
+          console.log(`🔄 Translating outdated languages: ${outdated.join(", ")}`);
+          fs.writeFileSync("/tmp/needs_translation", "true");
 
           async function translate() {
             const response = await client.messages.create({
@@ -59,64 +78,54 @@ jobs:
               messages: [
                 {
                   role: "user",
-                  content: `You are a translation agent. The index.html file contains 7 sequential <p> tags in this exact language order:
-          1. English (en) — source of truth
-          2. Simplified Chinese (cn)
-          3. Korean (ko)
-          4. Japanese (ja)
-          5. Portuguese (pt)
-          6. French (fr)
-          7. Turkish (tr)
+                  content: `You are a translation agent. Translate the following English content into these languages: ${outdated.map(l => `${l} (${toLang[l]})`).join(", ")}.
+
+          English source:
+          ${enContent}
 
           Rules:
-          - Read the English <p> tag (position 1) as the source of truth
-          - Translate it into the other 6 languages
-          - ONLY return the 7 <p> tags, one per line, in the same order
-          - Do NOT include any HTML structure, explanation, or markdown fences
-          - Format your response exactly like this:
+          - Return ONLY a JSON object with language codes as keys and translated text as values
+          - Do not include any explanation or markdown fences
+          - Example format: {"cn":"...","ko":"..."}
 
-          <p>English text here</p>
-          <p>Chinese translation here</p>
-          <p>Korean translation here</p>
-          <p>Japanese translation here</p>
-          <p>Portuguese translation here</p>
-          <p>French translation here</p>
-          <p>Turkish translation here</p>
-
-          Here is the current index.html:
-          ${html}`
+          Translate now:`
                 }
               ]
             });
 
-            const result = response.content[0].text.trim();
-            fs.writeFileSync("/tmp/translations.txt", result, "utf8");
-            console.log("Translation complete.");
+            let raw = response.content[0].text.trim();
+            // Strip markdown fences if present
+            raw = raw.replace(/^```json\n?/, "").replace(/\n?```$/, "").trim();
+            const translations = JSON.parse(raw);
+
+            // Apply translations back into the HTML
+            let updatedHtml = html;
+            for (const lang of outdated) {
+              if (!translations[lang]) continue;
+              // Replace content inside <p id="lang">...</p>
+              const regex = new RegExp(`(<p[^>]*id=["']${lang}["'][^>]*>)([\\s\\S]*?)(<\\/p>)`, "i");
+              updatedHtml = updatedHtml.replace(regex, `$1${translations[lang]}$3`);
+            }
+
+            fs.writeFileSync("index.html", updatedHtml, "utf8");
+            fs.writeFileSync("/tmp/translations.json", JSON.stringify(translations, null, 2));
+            console.log("✅ index.html updated with translations.");
           }
 
           translate().catch(e => { console.error(e); process.exit(1); });
           EOF
 
-      - name: Apply translations to index.html
-        if: steps.check_change.outputs.changed == 'true'
-        run: |
-          node << 'EOF'
-          const fs = require("fs");
-          const translations = fs.readFileSync("/tmp/translations.txt", "utf8").trim();
-          let html = fs.readFileSync("index.html", "utf8");
-
-          const pTags = translations.split("\n").filter(l => l.trim().startsWith("<p>"));
-          let count = 0;
-          html = html.replace(/<p>[\s\S]*?<\/p>/g, () => pTags[count++] || "");
-          fs.writeFileSync("index.html", html, "utf8");
-          console.log("index.html updated with translations.");
-          EOF
-
       - name: Create branch and open PR
-        if: steps.check_change.outputs.changed == 'true'
+        if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          NEEDS=$(cat /tmp/needs_translation)
+          if [ "$NEEDS" != "true" ]; then
+            echo "No translation needed, skipping PR."
+            exit 0
+          fi
+
           BRANCH="auto-translate-$(date +%Y%m%d-%H%M%S)"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -128,24 +137,23 @@ jobs:
           git commit -m "chore: auto-translate p tags to cn, ko, ja, pt, tr, fr"
           git push origin $BRANCH
 
-          TRANSLATIONS=$(cat /tmp/translations.txt)
+          TRANSLATIONS=$(cat /tmp/translations.json)
 
           gh pr create \
-            --title "chore: auto-translate updated <p> content" \
+            --title "chore: auto-translate updated <p id='en'> content" \
             --body "## 🌐 Translation Preview
 
-          Claude has translated the updated English \`<p>\` content. Please review before merging.
+          Claude detected that \`<p id='en'>\` was updated and translated the outdated languages.
 
-          ---
-
+          ### Translations applied
+          \`\`\`json
           $TRANSLATIONS
-
-          ---
+          \`\`\`
 
           ### Review checklist
           - [ ] Translations are accurate and natural
           - [ ] HTML structure is unchanged
-          - [ ] No unintended content was modified
+          - [ ] Only outdated languages were updated
 
           **Languages:** 🇺🇸 en · 🇨🇳 cn · 🇰🇷 ko · 🇯🇵 ja · 🇵🇹 pt · 🇫🇷 fr · 🇹🇷 tr
           > Triggered by commit: ${{ github.sha }}" \
