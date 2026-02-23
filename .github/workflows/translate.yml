@@ -116,6 +116,7 @@ ${enContent}`
       - name: Create branch and open PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMIT_SHA: ${{ github.sha }}
         run: |
           NEEDS=$(cat /tmp/needs_translation)
           if [ "$NEEDS" != "true" ]; then
@@ -126,7 +127,7 @@ ${enContent}`
           BRANCH="auto-translate-$(date +%Y%m%d-%H%M%S)"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b $BRANCH ${{ github.sha }}
+          git checkout -b $BRANCH $COMMIT_SHA
 
           # Apply translated file after branch checkout
           cp /tmp/index_translated.html index.html
@@ -148,7 +149,7 @@ ${enContent}`
           PRBODY
 
           echo "" >> /tmp/pr_body.md
-          echo "> Triggered by commit: ${{ github.sha }}" >> /tmp/pr_body.md
+          echo "> Triggered by commit: $COMMIT_SHA" >> /tmp/pr_body.md
 
           gh pr create \
             --title "chore: auto-translate en to cn" \
