@@ -14,18 +14,19 @@ jobs:
   translate:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       pull-requests: write
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Check if <p> content changed
         id: check_change
         run: |
+          git fetch origin main
           git diff origin/main HEAD -- index.html > /tmp/index_diff.txt
           if grep -q "^[+-].*<p>" /tmp/index_diff.txt; then
             echo "changed=true" >> $GITHUB_OUTPUT
@@ -73,9 +74,18 @@ jobs:
 
           Rules:
           - Read the English <p> tag (position 1) as the source of truth
-          - Translate it into the other 6 languages and replace each corresponding <p> tag
-          - ONLY change the text inside the <p> tags — do not modify any HTML, attributes, scripts, or structure
-          - Return the COMPLETE updated index.html file and nothing else — no explanation, no markdown fences
+          - Translate it into the other 6 languages
+          - ONLY return the 7 translated <p> tags, one per line, in the same order
+          - Do NOT include any HTML structure, explanation, or markdown fences
+          - Format your response exactly like this example:
+
+          <p>English text here</p>
+          <p>Chinese translation here</p>
+          <p>Korean translation here</p>
+          <p>Japanese translation here</p>
+          <p>Portuguese translation here</p>
+          <p>French translation here</p>
+          <p>Turkish translation here</p>
 
           Here is the current index.html:
           ${html}`
@@ -83,20 +93,29 @@ jobs:
               ]
             });
 
-            const updatedHtml = response.content[0].text;
-            fs.writeFileSync("index.html", updatedHtml, "utf8");
+            const result = response.content[0].text.trim();
+            fs.writeFileSync("/tmp/translations.txt", result, "utf8");
             console.log("Translation complete.");
           }
 
           translate().catch(e => { console.error(e); process.exit(1); });
           EOF
 
-      - name: Commit translation back to PR branch
+      - name: Post translations as PR comment
         if: steps.check_change.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add index.html
-          git diff --staged --quiet && echo "No changes to commit" && exit 0
-          git commit -m "chore: auto-translate p tags to cn, ko, ja, pt, tr, fr"
-          git push origin HEAD:${{ github.head_ref }}
+          TRANSLATIONS=$(cat /tmp/translations.txt)
+
+          gh pr comment ${{ github.event.pull_request.number }} --body "## 🌐 Translation Preview
+
+          Claude has translated the updated \`<p>\` content. Please review and apply to \`index.html\` if correct.
+
+          ---
+
+          $TRANSLATIONS
+
+          ---
+
+          **Languages:** 🇺🇸 en · 🇨🇳 cn · 🇰🇷 ko · 🇯🇵 ja · 🇵🇹 pt · 🇫🇷 fr · 🇹🇷 tr"
