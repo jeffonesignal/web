@@ -26,102 +26,93 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm install @anthropic-ai/sdk node-html-parser
+        run: npm install @anthropic-ai/sdk
 
-      - name: Check and translate via Claude API
+      - name: Translate en to cn
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           node << 'EOF'
           const Anthropic = require("@anthropic-ai/sdk");
-          const { parse } = require("node-html-parser");
           const fs = require("fs");
           const { execSync } = require("child_process");
 
           const client = new Anthropic();
+
+          // Read current index.html as raw text
           const html = fs.readFileSync("index.html", "utf8");
-          const root = parse(html);
 
-          // Get previous version of index.html from git
-          let prevHtml = "";
-          try {
-            prevHtml = execSync("git show HEAD~1:index.html").toString();
-          } catch (e) {
-            console.log("No previous commit found, treating all as new.");
-          }
-
-          // Read current en content
-          const enEl = root.querySelector(`p[id="en"]`);
-          if (!enEl) {
-            console.log("❌ No <p id='en'> found. Exiting.");
+          // Extract <p id="en"> content using regex
+          const enMatch = html.match(/<p\s+id=["']en["'][^>]*>([\s\S]*?)<\/p>/i);
+          if (!enMatch) {
+            console.log("❌ No <p id='en'> found.");
             fs.writeFileSync("/tmp/needs_translation", "false");
             process.exit(0);
           }
-          const enContent = enEl.innerHTML.trim();
+          const enContent = enMatch[1].trim();
+          console.log("=== CURRENT EN ===");
+          console.log(enContent);
 
-          // Read previous en content
+          // Get previous en content from last commit
           let prevEnContent = "";
-          if (prevHtml) {
-            const prevRoot = parse(prevHtml);
-            const prevEnEl = prevRoot.querySelector(`p[id="en"]`);
-            prevEnContent = prevEnEl ? prevEnEl.innerHTML.trim() : "";
+          try {
+            const prevHtml = execSync("git show HEAD~1:index.html").toString();
+            const prevMatch = prevHtml.match(/<p\s+id=["']en["'][^>]*>([\s\S]*?)<\/p>/i);
+            if (prevMatch) prevEnContent = prevMatch[1].trim();
+          } catch (e) {
+            console.log("No previous commit, will translate.");
           }
+          console.log("=== PREVIOUS EN ===");
+          console.log(prevEnContent);
 
-          // Only translate if en content actually changed
+          // Skip if unchanged
           if (enContent === prevEnContent) {
-            console.log("✅ English content unchanged. No translation needed.");
+            console.log("✅ No change in en content. Skipping.");
             fs.writeFileSync("/tmp/needs_translation", "false");
             process.exit(0);
           }
 
-          console.log("🔄 English content changed, translating all languages...");
+          console.log("🔄 Change detected! Translating to Chinese...");
           fs.writeFileSync("/tmp/needs_translation", "true");
 
-          const toLang = { cn: "Simplified Chinese", ko: "Korean", ja: "Japanese", pt: "Portuguese", fr: "French", tr: "Turkish" };
-
-          async function translate() {
-            const response = await client.messages.create({
+          async function run() {
+            const res = await client.messages.create({
               model: "claude-sonnet-4-6",
-              max_tokens: 4096,
-              messages: [
-                {
-                  role: "user",
-                  content: `You are a translation agent. Translate the following English content into these languages: ${Object.entries(toLang).map(([k,v]) => `${k} (${v})`).join(", ")}.
+              max_tokens: 2048,
+              messages: [{
+                role: "user",
+                content: `Translate the following English text to Simplified Chinese.
+Return ONLY the translated text with no explanation, no quotes, no markdown.
 
-          English source:
-          ${enContent}
-
-          Rules:
-          - Return ONLY a JSON object with language codes as keys and translated text as values
-          - Do not include any explanation or markdown fences
-          - Example format: {"cn":"...","ko":"...","ja":"...","pt":"...","fr":"...","tr":"..."}
-
-          Translate now:`
-                }
-              ]
+English:
+${enContent}`
+              }]
             });
 
-            let raw = response.content[0].text.trim();
-            raw = raw.replace(/^```json\n?/, "").replace(/\n?```$/, "").trim();
-            const translations = JSON.parse(raw);
+            const cnContent = res.content[0].text.trim();
+            console.log("=== CN TRANSLATION ===");
+            console.log(cnContent);
 
-            // Apply translations back into the HTML
-            let updatedHtml = html;
-            for (const [lang, text] of Object.entries(translations)) {
-              const regex = new RegExp(`(<p[^>]*id=["']${lang}["'][^>]*>)([\\s\\S]*?)(<\\/p>)`, "i");
-              updatedHtml = updatedHtml.replace(regex, `$1${text}$3`);
+            // Replace <p id="cn">...</p> content in the HTML
+            const updated = html.replace(
+              /(<p\s+id=["']cn["'][^>]*>)([\s\S]*?)(<\/p>)/i,
+              `$1\n  ${cnContent}\n  $3`
+            );
+
+            if (updated === html) {
+              console.log("⚠️ Could not find <p id='cn'> to replace. Check your index.html.");
+            } else {
+              console.log("✅ <p id='cn'> updated.");
             }
 
-            fs.writeFileSync("index.html", updatedHtml, "utf8");
-            fs.writeFileSync("/tmp/translations.json", JSON.stringify(translations, null, 2));
-            console.log("✅ index.html updated with translations.");
+            fs.writeFileSync("/tmp/index_translated.html", updated, "utf8");
+            fs.writeFileSync("/tmp/cn_translation.txt", cnContent, "utf8");
           }
 
-          translate().catch(e => { console.error(e); process.exit(1); });
+          run().catch(e => { console.error(e); process.exit(1); });
           EOF
 
       - name: Create branch and open PR
-        if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -135,30 +126,31 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b $BRANCH ${{ github.sha }}
+
+          # Apply translated file after branch checkout
+          cp /tmp/index_translated.html index.html
+
           git add index.html
           git diff --staged --quiet && echo "No changes to commit" && exit 0
-          git commit -m "chore: auto-translate p tags to cn, ko, ja, pt, tr, fr"
+          git commit -m "chore: translate en to cn"
           git push origin $BRANCH
 
-          TRANSLATIONS=$(cat /tmp/translations.json)
+          CN=$(cat /tmp/cn_translation.txt)
 
           gh pr create \
-            --title "chore: auto-translate updated <p id='en'> content" \
+            --title "chore: auto-translate <p id='en'> to Chinese" \
             --body "## 🌐 Translation Preview
 
-          Claude detected that \`<p id='en'>\` was updated and translated the outdated languages.
+          **English source:**
+          $(grep -oP '(?<=<p id="en">)[\s\S]*?(?=</p>)' /tmp/index_translated.html || echo '(see index.html)')
 
-          ### Translations applied
-          \`\`\`json
-          $TRANSLATIONS
-          \`\`\`
+          **Chinese translation:**
+          $CN
 
           ### Review checklist
-          - [ ] Translations are accurate and natural
-          - [ ] HTML structure is unchanged
-          - [ ] Only outdated languages were updated
+          - [ ] Translation is accurate
+          - [ ] HTML structure unchanged
 
-          **Languages:** 🇺🇸 en · 🇨🇳 cn · 🇰🇷 ko · 🇯🇵 ja · 🇵🇹 pt · 🇫🇷 fr · 🇹🇷 tr
           > Triggered by commit: ${{ github.sha }}" \
             --base main \
             --head $BRANCH
