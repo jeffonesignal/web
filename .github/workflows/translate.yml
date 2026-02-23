@@ -107,6 +107,7 @@ ${enContent}`
 
             fs.writeFileSync("/tmp/index_translated.html", updated, "utf8");
             fs.writeFileSync("/tmp/cn_translation.txt", cnContent, "utf8");
+            fs.writeFileSync("/tmp/en_content.txt", enContent, "utf8");
           }
 
           run().catch(e => { console.error(e); process.exit(1); });
@@ -135,22 +136,22 @@ ${enContent}`
           git commit -m "chore: translate en to cn"
           git push origin $BRANCH
 
-          CN=$(cat /tmp/cn_translation.txt)
+          # Write PR body to a file to avoid YAML/shell special character issues
+          cat > /tmp/pr_body.md << 'PRBODY'
+          ## 🌐 Translation Preview
 
-          gh pr create \
-            --title "chore: auto-translate <p id='en'> to Chinese" \
-            --body "## 🌐 Translation Preview
-
-          **English source:**
-          $(grep -oP '(?<=<p id="en">)[\s\S]*?(?=</p>)' /tmp/index_translated.html || echo '(see index.html)')
-
-          **Chinese translation:**
-          $CN
+          Claude detected a change in `<p id="en">` and translated it to Chinese.
 
           ### Review checklist
           - [ ] Translation is accurate
           - [ ] HTML structure unchanged
+          PRBODY
 
-          > Triggered by commit: ${{ github.sha }}" \
+          echo "" >> /tmp/pr_body.md
+          echo "> Triggered by commit: ${{ github.sha }}" >> /tmp/pr_body.md
+
+          gh pr create \
+            --title "chore: auto-translate en to cn" \
+            --body-file /tmp/pr_body.md \
             --base main \
             --head $BRANCH
