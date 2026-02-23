@@ -36,40 +36,48 @@ jobs:
           const Anthropic = require("@anthropic-ai/sdk");
           const { parse } = require("node-html-parser");
           const fs = require("fs");
+          const { execSync } = require("child_process");
 
           const client = new Anthropic();
           const html = fs.readFileSync("index.html", "utf8");
           const root = parse(html);
 
-          // Read content of each language <p> by id
-          const langs = ["en", "cn", "ko", "ja", "pt", "fr", "tr"];
-          const contents = {};
-          for (const lang of langs) {
-            const el = root.querySelector(`p[id="${lang}"]`);
-            contents[lang] = el ? el.innerHTML.trim() : null;
+          // Get previous version of index.html from git
+          let prevHtml = "";
+          try {
+            prevHtml = execSync("git show HEAD~1:index.html").toString();
+          } catch (e) {
+            console.log("No previous commit found, treating all as new.");
           }
 
-          const enContent = contents["en"];
-          if (!enContent) {
+          // Read current en content
+          const enEl = root.querySelector(`p[id="en"]`);
+          if (!enEl) {
             console.log("❌ No <p id='en'> found. Exiting.");
+            fs.writeFileSync("/tmp/needs_translation", "false");
             process.exit(0);
           }
+          const enContent = enEl.innerHTML.trim();
 
-          // Check which languages are out of sync with en
-          const toLang = { cn: "Simplified Chinese", ko: "Korean", ja: "Japanese", pt: "Portuguese", fr: "French", tr: "Turkish" };
-          const outdated = Object.keys(toLang).filter(lang => {
-            // If the lang <p> is missing or still contains English text, mark as outdated
-            return !contents[lang] || contents[lang] === enContent;
-          });
+          // Read previous en content
+          let prevEnContent = "";
+          if (prevHtml) {
+            const prevRoot = parse(prevHtml);
+            const prevEnEl = prevRoot.querySelector(`p[id="en"]`);
+            prevEnContent = prevEnEl ? prevEnEl.innerHTML.trim() : "";
+          }
 
-          if (outdated.length === 0) {
-            console.log("✅ All translations are already up to date.");
+          // Only translate if en content actually changed
+          if (enContent === prevEnContent) {
+            console.log("✅ English content unchanged. No translation needed.");
             fs.writeFileSync("/tmp/needs_translation", "false");
             process.exit(0);
           }
 
-          console.log(`🔄 Translating outdated languages: ${outdated.join(", ")}`);
+          console.log("🔄 English content changed, translating all languages...");
           fs.writeFileSync("/tmp/needs_translation", "true");
+
+          const toLang = { cn: "Simplified Chinese", ko: "Korean", ja: "Japanese", pt: "Portuguese", fr: "French", tr: "Turkish" };
 
           async function translate() {
             const response = await client.messages.create({
@@ -78,7 +86,7 @@ jobs:
               messages: [
                 {
                   role: "user",
-                  content: `You are a translation agent. Translate the following English content into these languages: ${outdated.map(l => `${l} (${toLang[l]})`).join(", ")}.
+                  content: `You are a translation agent. Translate the following English content into these languages: ${Object.entries(toLang).map(([k,v]) => `${k} (${v})`).join(", ")}.
 
           English source:
           ${enContent}
@@ -86,7 +94,7 @@ jobs:
           Rules:
           - Return ONLY a JSON object with language codes as keys and translated text as values
           - Do not include any explanation or markdown fences
-          - Example format: {"cn":"...","ko":"..."}
+          - Example format: {"cn":"...","ko":"...","ja":"...","pt":"...","fr":"...","tr":"..."}
 
           Translate now:`
                 }
@@ -94,17 +102,14 @@ jobs:
             });
 
             let raw = response.content[0].text.trim();
-            // Strip markdown fences if present
             raw = raw.replace(/^```json\n?/, "").replace(/\n?```$/, "").trim();
             const translations = JSON.parse(raw);
 
             // Apply translations back into the HTML
             let updatedHtml = html;
-            for (const lang of outdated) {
-              if (!translations[lang]) continue;
-              // Replace content inside <p id="lang">...</p>
+            for (const [lang, text] of Object.entries(translations)) {
               const regex = new RegExp(`(<p[^>]*id=["']${lang}["'][^>]*>)([\\s\\S]*?)(<\\/p>)`, "i");
-              updatedHtml = updatedHtml.replace(regex, `$1${translations[lang]}$3`);
+              updatedHtml = updatedHtml.replace(regex, `$1${text}$3`);
             }
 
             fs.writeFileSync("index.html", updatedHtml, "utf8");
