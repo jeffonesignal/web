@@ -14,6 +14,11 @@ jobs:
       contents: write
       pull-requests: write
 
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      COMMIT_SHA: ${{ github.sha }}
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -28,52 +33,42 @@ jobs:
       - name: Install dependencies
         run: npm install @anthropic-ai/sdk
 
-      - name: Translate en to cn
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - name: Translate and create PR
         run: |
-          node << 'EOF'
+          node << 'NODESCRIPT'
           const Anthropic = require("@anthropic-ai/sdk");
           const fs = require("fs");
           const { execSync } = require("child_process");
 
           const client = new Anthropic();
-
-          // Read current index.html as raw text
           const html = fs.readFileSync("index.html", "utf8");
 
-          // Extract <p id="en"> content using regex
+          // Extract current en content
           const enMatch = html.match(/<p\s+id=["']en["'][^>]*>([\s\S]*?)<\/p>/i);
           if (!enMatch) {
-            console.log("❌ No <p id='en'> found.");
-            fs.writeFileSync("/tmp/needs_translation", "false");
+            console.log("No <p id='en'> found. Exiting.");
             process.exit(0);
           }
           const enContent = enMatch[1].trim();
-          console.log("=== CURRENT EN ===");
-          console.log(enContent);
+          console.log("CURRENT EN:", enContent.substring(0, 100));
 
-          // Get previous en content from last commit
+          // Extract previous en content
           let prevEnContent = "";
           try {
             const prevHtml = execSync("git show HEAD~1:index.html").toString();
             const prevMatch = prevHtml.match(/<p\s+id=["']en["'][^>]*>([\s\S]*?)<\/p>/i);
             if (prevMatch) prevEnContent = prevMatch[1].trim();
           } catch (e) {
-            console.log("No previous commit, will translate.");
+            console.log("No previous commit found.");
           }
-          console.log("=== PREVIOUS EN ===");
-          console.log(prevEnContent);
+          console.log("PREVIOUS EN:", prevEnContent.substring(0, 100));
 
-          // Skip if unchanged
           if (enContent === prevEnContent) {
-            console.log("✅ No change in en content. Skipping.");
-            fs.writeFileSync("/tmp/needs_translation", "false");
+            console.log("No change in en content. Skipping.");
             process.exit(0);
           }
 
-          console.log("🔄 Change detected! Translating to Chinese...");
-          fs.writeFileSync("/tmp/needs_translation", "true");
+          console.log("Change detected! Translating...");
 
           async function run() {
             const res = await client.messages.create({
@@ -81,78 +76,54 @@ jobs:
               max_tokens: 2048,
               messages: [{
                 role: "user",
-                content: `Translate the following English text to Simplified Chinese.
-Return ONLY the translated text with no explanation, no quotes, no markdown.
-
-English:
-${enContent}`
+                content: "Translate the following English text to Simplified Chinese.\nReturn ONLY the translated text, no explanation.\n\nEnglish:\n" + enContent
               }]
             });
 
             const cnContent = res.content[0].text.trim();
-            console.log("=== CN TRANSLATION ===");
-            console.log(cnContent);
+            console.log("CN TRANSLATION:", cnContent.substring(0, 100));
 
-            // Replace <p id="cn">...</p> content in the HTML
             const updated = html.replace(
               /(<p\s+id=["']cn["'][^>]*>)([\s\S]*?)(<\/p>)/i,
-              `$1\n  ${cnContent}\n  $3`
+              "$1\n  " + cnContent + "\n  $3"
             );
 
             if (updated === html) {
-              console.log("⚠️ Could not find <p id='cn'> to replace. Check your index.html.");
-            } else {
-              console.log("✅ <p id='cn'> updated.");
+              console.log("WARNING: Could not find <p id='cn'>. Check index.html.");
+              process.exit(1);
             }
 
             fs.writeFileSync("/tmp/index_translated.html", updated, "utf8");
             fs.writeFileSync("/tmp/cn_translation.txt", cnContent, "utf8");
-            fs.writeFileSync("/tmp/en_content.txt", enContent, "utf8");
+            console.log("Translation saved.");
+
+            // Create branch and PR using shell commands
+            const branch = "auto-translate-" + new Date().toISOString().replace(/[:.]/g, "-").substring(0, 19);
+            const sha = process.env.COMMIT_SHA;
+
+            execSync("git config user.name github-actions[bot]");
+            execSync('git config user.email github-actions[bot]@users.noreply.github.com');
+            execSync("git checkout -b " + branch + " " + sha);
+            execSync("cp /tmp/index_translated.html index.html");
+            execSync("git add index.html");
+
+            try {
+              execSync('git diff --staged --quiet');
+              console.log("No changes to commit.");
+              process.exit(0);
+            } catch (e) {
+              // diff found changes, proceed
+            }
+
+            execSync('git commit -m "chore: translate en to cn"');
+            execSync("git push origin " + branch);
+
+            const prBody = "## Translation Preview\n\nClaude translated the updated English content to Chinese.\n\n### Review checklist\n- [ ] Translation is accurate\n- [ ] HTML structure unchanged";
+            fs.writeFileSync("/tmp/pr_body.md", prBody);
+
+            execSync("gh pr create --title \"chore: auto-translate en to cn\" --body-file /tmp/pr_body.md --base main --head " + branch);
+            console.log("PR created successfully.");
           }
 
           run().catch(e => { console.error(e); process.exit(1); });
-          EOF
-
-      - name: Create branch and open PR
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COMMIT_SHA: ${{ github.sha }}
-        run: |
-          NEEDS=$(cat /tmp/needs_translation)
-          if [ "$NEEDS" != "true" ]; then
-            echo "No translation needed, skipping PR."
-            exit 0
-          fi
-
-          BRANCH="auto-translate-$(date +%Y%m%d-%H%M%S)"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b $BRANCH $COMMIT_SHA
-
-          # Apply translated file after branch checkout
-          cp /tmp/index_translated.html index.html
-
-          git add index.html
-          git diff --staged --quiet && echo "No changes to commit" && exit 0
-          git commit -m "chore: translate en to cn"
-          git push origin $BRANCH
-
-          # Write PR body to a file to avoid YAML/shell special character issues
-          cat > /tmp/pr_body.md << 'PRBODY'
-          ## 🌐 Translation Preview
-
-          Claude detected a change in `<p id="en">` and translated it to Chinese.
-
-          ### Review checklist
-          - [ ] Translation is accurate
-          - [ ] HTML structure unchanged
-          PRBODY
-
-          echo "" >> /tmp/pr_body.md
-          echo "> Triggered by commit: $COMMIT_SHA" >> /tmp/pr_body.md
-
-          gh pr create \
-            --title "chore: auto-translate en to cn" \
-            --body-file /tmp/pr_body.md \
-            --base main \
-            --head $BRANCH
+          NODESCRIPT
