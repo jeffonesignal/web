@@ -129,9 +129,7 @@ jobs:
           BRANCH="auto-translate-$(date +%Y%m%d-%H%M%S)"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin main
-          git reset --hard origin/main
-          git checkout -b $BRANCH
+          git checkout -b $BRANCH ${{ github.sha }}
           git add index.html
           git diff --staged --quiet && echo "No changes to commit" && exit 0
           git commit -m "chore: auto-translate p tags to cn, ko, ja, pt, tr, fr"
