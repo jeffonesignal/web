@@ -14,8 +14,31 @@
       safari_web_id: "web.onesignal.auto.235723f6-f2ef-49f2-bb5e-e966332d4e54",
       autoResubscribe: true,
       notifyButton: {
-        enable: false,
-      },
+        enable: true, /* Required to use the Subscription Bell */
+        size: 'medium', /* One of 'small', 'medium', or 'large' */
+        theme: 'default', /* One of 'default' (red-white) or 'inverse" (white-red) */
+        position: 'bottom-right', /* Either 'bottom-left' or 'bottom-right' */
+        offset: {
+            bottom: '0px',
+            left: '0px', /* Only applied if bottom-left */
+            right: '0px' /* Only applied if bottom-right */
+        },
+        showCredit: false, /* Hide the OneSignal logo */
+        text: {
+            'tip.state.unsubscribed': 'Subscribe to notifications',
+            'tip.state.subscribed': "You're subscribed to notifications",
+            'tip.state.blocked': "You've blocked notifications",
+            'message.prenotify': 'Click to subscribe to notifications',
+            'message.action.subscribed': "Thanks for subscribing!",
+            'message.action.resubscribed': "You're subscribed to notifications",
+            'message.action.unsubscribed': "You won't receive notifications again",
+            'dialog.main.title': 'Manage Site Notifications',
+            'dialog.main.button.subscribe': 'SUBSCRIBE',
+            'dialog.main.button.unsubscribe': 'UNSUBSCRIBE',
+            'dialog.blocked.title': 'Unblock Notifications',
+            'dialog.blocked.message': "Follow these instructions to allow notifications:"
+        }
+      }
       // webhooks: {
       //   cors: false, // Defaults to false if omitted
       //   'notification.willDisplay': 'https://webhook.site/d04a69f7-5114-4e98-b69f-f31ceb790f2c',
@@ -54,7 +77,7 @@
             }
           ]
         }
-      }
+      }// promptOptions
 
     //end of init  
     });
